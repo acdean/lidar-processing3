@@ -1,5 +1,6 @@
 // quick and dirty lidar data to point cloud for Processing3
 // data is from data.gov.uk/dataset/lidar-tiles-tile-index
+// press 'l' to load another file
 // acd 2016 10 01
 
 import peasy.*;
@@ -11,13 +12,40 @@ PShape cloud;
 PeasyCam cam;
 float ox, oy;  // origin
 float xmag, ymag;
+LidarData lidar;
 
 void setup() {
   size(1000, 750, P3D);
   cam = new PeasyCam(this, 500);
-  LidarData lidar = new LidarData(FILENAME);
-  xmag = lidar.cellSize;
-  ymag = -lidar.cellSize; // flip y direction
+  lidar = loadLidar(FILENAME); // load initial file
+  cam.lookAt(ox, oy, 0.0);
+}
+
+void draw() {
+  background(0);
+  shape(cloud);
+}
+
+void keyReleased() {
+  if (key == 'l') {
+    selectInput("Select a lidar tile:", "fileSelected");
+  }
+}
+
+void fileSelected(File selection) {
+  if (selection == null) {
+    println("Window was closed or the user hit cancel.");
+  } else {
+    println("User selected " + selection.getAbsolutePath());
+    lidar = loadLidar(selection.getAbsolutePath());
+  }
+}
+
+// loads the file, sets global variables
+LidarData loadLidar(String filename) {
+  LidarData data = new LidarData(filename);
+  xmag = data.cellSize;
+  ymag = -data.cellSize; // flip y direction
   float zmin = 1000;
   float zmax = -1000;
 
@@ -27,10 +55,10 @@ void setup() {
   cloud.stroke(0, 255, 0);
   cloud.strokeWeight(2);
   cloud.noFill();
-  for (int y = 0 ; y < lidar.rows ; y++) {
-    for (int x = 0 ; x < lidar.cols ; x++) {
-      float z = lidar.points[x][y]; 
-      if (z != lidar.noData) {
+  for (int y = 0 ; y < data.rows ; y++) {
+    for (int x = 0 ; x < data.cols ; x++) {
+      float z = data.points[x][y]; 
+      if (z != data.noData) {
         cloud.stroke(map(z, 20, 70, 64, 255)); // heightmap to colour
         cloud.vertex(x * xmag, y * ymag, ZMAG * z);
         if (z < zmin) {
@@ -47,15 +75,10 @@ void setup() {
   // min and max heights
   println("MinMax: " + zmin + "," + zmax);
   // origin (TODO use xllcorner and yllcorner from file)
-  ox = (lidar.cols * xmag) / 2;
-  oy = (lidar.rows * ymag) / 2;
+  ox = (data.cols * xmag) / 2;
+  oy = (data.rows * ymag) / 2;
   println("Origin: " + ox + "," + oy);
-  cam.lookAt(ox, oy, 0.0);
-}
-
-void draw() {
-  background(0);
-  shape(cloud);
+  return data;
 }
 
 class LidarData {
