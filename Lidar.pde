@@ -1,6 +1,7 @@
 // quick and dirty lidar data to point cloud for Processing3
 // data is from data.gov.uk/dataset/lidar-tiles-tile-index
 // press 'l' to load another file
+// added terrain mode (compile time)
 // acd 2016 10 01
 
 import peasy.*;
@@ -23,6 +24,7 @@ void setup() {
 
 void draw() {
   background(0);
+  lights();
   shape(cloud);
 }
 
@@ -46,34 +48,12 @@ LidarData loadLidar(String filename) {
   LidarData data = new LidarData(filename);
   xmag = data.cellSize;
   ymag = -data.cellSize; // flip y direction
-  float zmin = 1000;
-  float zmax = -1000;
 
-  // create cloud
-  cloud = createShape();
-  cloud.beginShape(POINTS);
-  cloud.stroke(0, 255, 0);
-  cloud.strokeWeight(2);
-  cloud.noFill();
-  for (int y = 0 ; y < data.rows ; y++) {
-    for (int x = 0 ; x < data.cols ; x++) {
-      float z = data.points[x][y]; 
-      if (z != data.noData) {
-        cloud.stroke(map(z, 20, 70, 64, 255)); // heightmap to colour
-        cloud.vertex(x * xmag, y * ymag, ZMAG * z);
-        if (z < zmin) {
-          zmin = z;
-        }
-        if (z > zmax) {
-          zmax = z;
-        }
-      }
-    }
-  }
-  cloud.endShape();
+  //cloud = data.asPointCloud();
+  cloud = data.asTerrain();
 
   // min and max heights
-  println("MinMax: " + zmin + "," + zmax);
+  println("MinMax: " + data.zmin + "," + data.zmax);
   // origin (TODO use xllcorner and yllcorner from file)
   ox = (data.cols * xmag) / 2;
   oy = (data.rows * ymag) / 2;
@@ -89,6 +69,8 @@ class LidarData {
   float cellSize;  // in metres
   int noData;
   float[][] points;
+  float zmin = 1000;
+  float zmax = -1000;
 
   LidarData(String filename) {
     String[] strs = loadStrings(filename);
@@ -120,6 +102,62 @@ class LidarData {
         row++;
       }
     }
+  }
+
+  PShape asPointCloud() {
+    // create cloud
+    PShape shape = createShape();
+    shape.beginShape(POINTS);
+    shape.stroke(0, 255, 0);
+    shape.strokeWeight(2);
+    shape.noFill();
+    for (int y = 0 ; y < rows ; y++) {
+      for (int x = 0 ; x < cols ; x++) {
+        float z = points[x][y]; 
+        if (z != noData) {
+          shape.stroke(map(z, 20, 70, 64, 255)); // heightmap to colour
+          shape.vertex(x * xmag, y * ymag, ZMAG * z);
+          if (z < zmin) {
+            zmin = z;
+          }
+          if (z > zmax) {
+            zmax = z;
+          }
+        }
+      }
+    }
+    shape.endShape();
+    return shape;
+  }
+
+  PShape asTerrain() {
+    PShape shape = createShape();
+    shape.beginShape(TRIANGLES);
+    shape.noStroke();
+    shape.fill(128);
+    // NB ignore last row / column
+    for (int y = 0 ; y < rows - 1 ; y++) {
+      for (int x = 0 ; x < cols - 1 ; x++) {
+        // 0 1
+        // 2 3
+        float z0 = points[x][y]; 
+        float z1 = points[x + 1][y]; 
+        float z2 = points[x][y + 1]; 
+        float z3 = points[x + 1][y + 1]; 
+        if (z0 != noData && z1 != noData && z2 != noData && z3 != noData) {
+          // triangle 1
+          shape.vertex(x * xmag, y * ymag, ZMAG * z0);
+          shape.vertex((x + 1) * xmag, y * ymag, ZMAG * z1);
+          shape.vertex(x * xmag, (y + 1) * ymag, ZMAG * z2);
+          // triangle 2
+          shape.vertex((x + 1) * xmag, y * ymag, ZMAG * z1);
+          shape.vertex(x * xmag, (y + 1) * ymag, ZMAG * z2);
+          shape.vertex((x + 1) * xmag, (y + 1) * ymag, ZMAG * z3);
+        }
+      }
+    }
+    shape.endShape();
+    return shape;
   }
   
   // convert "name      numeric" to "numeric"
