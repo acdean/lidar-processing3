@@ -13,6 +13,7 @@ PeasyCam cam;
 float ox, oy;  // origin
 float xmag, ymag;
 LidarData lidar;
+String filename;
 
 void setup() {
   size(1000, 750, P3D);
@@ -30,6 +31,9 @@ void keyReleased() {
   if (key == 'l') {
     selectInput("Select a lidar tile:", "fileSelected");
   }
+  if (key == 's') {
+    saveFrame("frame_" + filename + "_#####.png");
+  }
 }
 
 void fileSelected(File selection) {
@@ -42,7 +46,8 @@ void fileSelected(File selection) {
 }
 
 // loads the file, sets global variables
-LidarData loadLidar(String filename) {
+LidarData loadLidar(String _filename) {
+  filename = _filename;
   LidarData data = new LidarData(filename);
   xmag = data.cellSize;
   ymag = -data.cellSize; // flip y direction
